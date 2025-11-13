@@ -46,6 +46,7 @@
       gap: 8px;
       flex-wrap: wrap;
       justify-content: flex-end;
+      align-items: center;
     }
 
     .settings input {
@@ -58,8 +59,18 @@
       font-size: 12px;
     }
 
-    .settings input::placeholder {
-      color: #5f678f;
+    .toggle-label {
+      font-size: 12px;
+      color: #cdd3f8;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .toggle-label input {
+      cursor: pointer;
     }
 
     .chat-window {
@@ -91,7 +102,6 @@
       background: #0f1a3f;
     }
 
-    /* 图片消息 */
     .msg img {
       max-width: 240px;
       border-radius: 8px;
@@ -157,65 +167,9 @@
       cursor: not-allowed;
     }
 
-    /* Markdown 渲染区域样式（主要作用在 assistant 气泡里） */
     .msg.assistant .markdown-body {
-      white-space: normal;          /* Markdown 用自己的换行 */
+      white-space: normal;
       font-size: 14px;
-    }
-
-    .msg.assistant .markdown-body p {
-      margin: 0 0 8px;
-    }
-
-    .msg.assistant .markdown-body code {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: 13px;
-      background: #050816;
-      padding: 2px 4px;
-      border-radius: 4px;
-    }
-
-    .msg.assistant .markdown-body pre {
-      background: #050816;
-      border-radius: 8px;
-      padding: 10px;
-      overflow-x: auto;
-      font-size: 13px;
-      margin: 6px 0 10px;
-    }
-
-    .msg.assistant .markdown-body pre code {
-      background: transparent;
-      padding: 0;
-    }
-
-    .msg.assistant .markdown-body ul,
-    .msg.assistant .markdown-body ol {
-      padding-left: 1.4em;
-      margin: 0 0 8px;
-    }
-
-    .msg.assistant .markdown-body h1,
-    .msg.assistant .markdown-body h2,
-    .msg.assistant .markdown-body h3,
-    .msg.assistant .markdown-body h4 {
-      margin: 8px 0 6px;
-      font-weight: 600;
-    }
-
-    .msg.assistant .markdown-body a {
-      color: #7aa2ff;
-      text-decoration: underline;
-    }
-
-    /* 简单的“正在思考”闪烁效果（如果以后想加） */
-    @keyframes blink {
-      0%, 100% { opacity: 0.2; }
-      50% { opacity: 1; }
-    }
-    .typing-indicator {
-      display: inline-block;
-      animation: blink 1.2s infinite;
     }
   </style>
 </head>
@@ -224,6 +178,13 @@
     <header>
       <h2>💬 Chat 窗口（流式 & Markdown）</h2>
       <div class="settings">
+
+        <!-- 🆕 新增：记忆开关（多轮/单轮） -->
+        <label class="toggle-label">
+          <input id="memoryToggle" type="checkbox" checked />
+          多轮对话
+        </label>
+
         <input id="baseUrl" placeholder="Base URL" value="http://localhost:8080/v1" />
         <input id="apiKey" placeholder="API Key" type="password" />
         <input id="model" placeholder="模型ID" />
@@ -240,38 +201,26 @@
     </footer>
   </div>
 
-  <!-- Markdown 渲染：marked -->
+  <!-- Markdown -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <!-- 代码高亮：highlight.js（常用语言集合） -->
+  <!-- highlight.js -->
   <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/common.min.js"></script>
 
   <script>
-    // ========= Markdown 渲染配置 =========
     if (window.marked) {
       marked.setOptions({
         breaks: true,
         highlight(code, lang) {
-          try {
-            if (window.hljs) {
-              const validLang = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
-              return hljs.highlight(code, { language: validLang }).value;
-            }
-          } catch (e) {
-            console.error('highlight error:', e);
-          }
-          return code;
+          const validLang = (lang && hljs.getLanguage(lang)) ? lang : 'plaintext';
+          return hljs.highlight(code, { language: validLang }).value;
         }
       });
     }
 
     function renderMarkdown(text) {
-      if (!text) return '';
-      if (!window.marked) return text; // 兜底：库没加载成功就用纯文本
-      const html = marked.parse(text);
-      return `<div class="markdown-body">${html}</div>`;
+      return `<div class="markdown-body">${marked.parse(text)}</div>`;
     }
 
-    // ========= DOM 获取 =========
     const chatWindow = document.getElementById('chatWindow');
     const userInput = document.getElementById('userInput');
     const sendBtn = document.getElementById('sendBtn');
@@ -280,40 +229,29 @@
     const baseUrlEl = document.getElementById('baseUrl');
     const apiKeyEl = document.getElementById('apiKey');
     const modelEl = document.getElementById('model');
+    const memoryToggle = document.getElementById('memoryToggle'); // 🆕 记忆模式控制
 
     const state = { messages: [] };
 
-    // role: 'user' | 'assistant'
-    // isHtml: 是否把 text 当 html 插入（用于 assistant Markdown）
     function appendMessage(role, text, imgSrc, isHtml = false) {
       const div = document.createElement('div');
       div.className = `msg ${role}`;
-
-      if (text) {
-        if (isHtml) {
-          div.innerHTML = text;
-        } else {
-          div.textContent = text;
-        }
-      }
-
+      div.innerHTML = isHtml ? text : text;
       if (imgSrc) {
         const img = document.createElement('img');
         img.src = imgSrc;
         div.appendChild(img);
       }
-
       chatWindow.appendChild(div);
-      chatWindow.scrollTo({ top: chatWindow.scrollHeight, behavior: 'smooth' });
+      chatWindow.scrollTop = chatWindow.scrollHeight;
       return div;
     }
 
     function fileToBase64(file) {
-      return new Promise((resolve, reject) => {
+      return new Promise(resolve => {
         if (!file) return resolve(null);
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
         reader.readAsDataURL(file);
       });
     }
@@ -324,129 +262,95 @@
       const apiKey = apiKeyEl.value.trim();
       const model = modelEl.value.trim();
 
-      if (!baseUrl || !apiKey || !model) {
-        alert('请填写 Base URL、API Key、模型ID');
-        return;
-      }
       if (!text && !imageInput.files[0]) return;
 
       sendBtn.disabled = true;
 
-      // 图片转 base64
       const imgData = await fileToBase64(imageInput.files[0]);
 
-      // OpenAI 兼容格式：多模态 content
       const content = [];
       if (text) content.push({ type: 'text', text });
       if (imgData) content.push({ type: 'image_url', image_url: { url: imgData } });
 
-      const userMsg = { role: 'user', content };
       appendMessage('user', text, imgData);
-      state.messages.push(userMsg);
 
-      // 先插入一个空的 assistant 气泡，用于流式更新
-      const assistantDiv = appendMessage('assistant', renderMarkdown(''), null, true);
-      let assistantContent = '';
+      const userMsg = { role: 'user', content };
+
+      // 🆕 根据开关决定是否使用历史消息
+      let messages;
+      if (memoryToggle.checked) {
+        state.messages.push(userMsg);
+        messages = state.messages;
+      } else {
+        messages = [userMsg];
+      }
+
+      const assistantDiv = appendMessage('assistant', renderMarkdown(""), null, true);
+      let assistantContent = "";
 
       try {
         const resp = await fetch(`${baseUrl}/chat/completions`, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json"
           },
           body: JSON.stringify({
             model,
-            messages: state.messages,
-            stream: true        // 关键：打开流式
+            messages,
+            stream: true
           })
         });
 
-        if (!resp.ok) {
-          throw new Error(`HTTP ${resp.status}`);
-        }
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder("utf-8");
 
-        const contentType = resp.headers.get('content-type') || '';
+        let buffer = "";
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
 
-        // 如果服务器不支持 SSE，fallback 成非流式（兼容老服务）
-        if (!contentType.includes('text/event-stream')) {
-          const json = await resp.json();
-          assistantContent = json.choices?.[0]?.message?.content || '无回复';
-          assistantDiv.innerHTML = renderMarkdown(assistantContent);
-        } else {
-          // SSE 流式解析
-          const reader = resp.body.getReader();
-          const decoder = new TextDecoder('utf-8');
-          let buffer = '';
-          let doneAll = false;
+          buffer += decoder.decode(value, { stream: true });
 
-          while (!doneAll) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop() || "";
 
-            // 按事件块分割（通常以 \n\n 分割）
-            const parts = buffer.split('\n\n');
-            // 最后一块可能是不完整的，暂留在 buffer
-            buffer = parts.pop() || '';
-
-            for (const part of parts) {
-              const lines = part.split('\n').map(l => l.trim()).filter(Boolean);
-              for (const line of lines) {
-                if (!line.startsWith('data:')) continue;
-                const data = line.slice('data:'.length).trim();
-                if (data === '[DONE]') {
-                  doneAll = true;
-                  break;
-                }
-                try {
-                  const json = JSON.parse(data);
-                  const delta = json.choices?.[0]?.delta?.content || '';
-                  if (delta) {
-                    assistantContent += delta;
-                    assistantDiv.innerHTML = renderMarkdown(assistantContent);
-                    chatWindow.scrollTo({
-                      top: chatWindow.scrollHeight,
-                      behavior: 'smooth'
-                    });
-                  }
-                } catch (e) {
-                  console.error('解析 SSE data 出错：', e, data);
-                }
-              }
-              if (doneAll) break;
-            }
+          for (const part of parts) {
+            const line = part.trim().replace(/^data:/, "").trim();
+            if (line === "[DONE]") break;
+            try {
+              const json = JSON.parse(line);
+              const delta = json.choices?.[0]?.delta?.content || "";
+              assistantContent += delta;
+              assistantDiv.innerHTML = renderMarkdown(assistantContent);
+              chatWindow.scrollTop = chatWindow.scrollHeight;
+            } catch { }
           }
         }
 
-        // 把完整助手消息加入对话上下文，方便继续多轮
-        if (assistantContent) {
+        // 🆕 多轮对话模式才记录 assistant 回复
+        if (memoryToggle.checked) {
           state.messages.push({
-            role: 'assistant',
+            role: "assistant",
             content: assistantContent
           });
-        } else {
-          assistantDiv.innerHTML = renderMarkdown('（无回复内容）');
         }
-      } catch (err) {
-        console.error(err);
-        assistantDiv.innerHTML = renderMarkdown('❌ 出错：' + (err.message || err));
+
       } finally {
         sendBtn.disabled = false;
-        userInput.value = '';
-        imageInput.value = '';
+        userInput.value = "";
+        imageInput.value = "";
       }
     }
 
-    // 回车发送，Ctrl+Enter 换行
-    userInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.ctrlKey) {
+    userInput.addEventListener("keydown", e => {
+      if (e.key === "Enter" && !e.ctrlKey) {
         e.preventDefault();
         sendMessage();
       }
     });
 
-    sendBtn.addEventListener('click', sendMessage);
+    sendBtn.addEventListener("click", sendMessage);
   </script>
 </body>
 </html>
