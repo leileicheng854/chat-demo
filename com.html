@@ -1,1 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INCAR VQA 案例对比 — gemma-4-26b vs qwen3.5-omni-flash</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif; background: #f7f6f3; color: #1a1a18; padding: 2rem; }
+h1 { font-size: 20px; font-weight: 500; margin-bottom: 4px; color: #1a1a18; }
+.subtitle { font-size: 13px; color: #888780; margin-bottom: 2rem; }
+.section { margin-bottom: 2rem; background: #fff; border-radius: 12px; border: 0.5px solid #d3d1c7; overflow: hidden; }
+.section-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 0.5px solid #e8e6e0;
+  background: #fafaf8;
+}
+.cat-label {
+  font-size: 12px; font-weight: 500;
+  padding: 3px 10px; border-radius: 6px;
+}
+.verdict-badge {
+  font-size: 12px; padding: 3px 10px;
+  border-radius: 6px; font-weight: 500;
+}
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  font-size: 11px; font-weight: 500; text-align: left;
+  color: #888780; padding: 8px 14px;
+  border-bottom: 0.5px solid #e8e6e0;
+  background: #fafaf8;
+}
+td {
+  padding: 12px 14px; vertical-align: top;
+  border-bottom: 0.5px solid #f0ede6;
+  color: #1a1a18; line-height: 1.6;
+}
+tr:last-child td { border-bottom: none; }
+td.query-col { color: #5f5e5a; font-size: 12px; width: 100px; }
+td.gt-col { color: #5f5e5a; font-size: 12px; width: 180px; }
+td.resp-col { width: 220px; }
+.tag { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 4px; margin-bottom: 6px; }
+.tag-hit { background: #E1F5EE; color: #085041; }
+.tag-miss { background: #FAECE7; color: #712B13; }
+.tag-na { background: #F1EFE8; color: #5F5E5A; }
+.overall {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 12px; margin-bottom: 2rem;
+}
+.overall-card {
+  background: #fff; border-radius: 12px;
+  border: 0.5px solid #d3d1c7;
+  padding: 1rem 1.25rem;
+}
+.overall-card h3 { font-size: 13px; font-weight: 500; color: #888780; margin-bottom: 6px; }
+.overall-card .score { font-size: 28px; font-weight: 500; }
+.overall-card .detail { font-size: 12px; color: #888780; margin-top: 4px; }
+.winner { border: 1.5px solid #1D9E75; }
+.winner-badge { font-size: 11px; color: #0F6E56; font-weight: 500; margin-left: 8px; }
+</style>
+</head>
+<body>
 
+<h1>INCAR VQA 案例对比</h1>
+<p class="subtitle">gemma-4-26b vs qwen3.5-omni-flash — 248 条测试用例，8 大任务类别</p>
+
+<div class="overall">
+  <div class="overall-card">
+    <h3>gemma-4-26b</h3>
+    <div class="score">49.23%</div>
+    <div class="detail">成功率 100% · 平均响应 2.75s</div>
+  </div>
+  <div class="overall-card winner">
+    <h3>qwen3.5-omni-flash <span class="winner-badge">总体胜出</span></h3>
+    <div class="score" style="color:#0F6E56;">55.84%</div>
+    <div class="detail">成功率 91.9% · 平均响应 4.51s</div>
+  </div>
+</div>
+
+<!-- 衣服颜色 -->
+<div class="section">
+  <div class="section-header">
+    <span class="cat-label" style="background:#E1F5EE;color:#085041;">衣服颜色</span>
+    <span class="verdict-badge" style="background:#E6F1FB;color:#0C447C;">qwen 胜出 — 36.4% vs 61.4%</span>
+  </div>
+  <table>
+    <thead>
+      <tr><th>问题</th><th>GT 关键答案</th><th>gemma-4-26b</th><th>qwen3.5-omni-flash</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="query-col">看看我穿的什么颜色的衣服</td>
+        <td class="gt-col">紫色羽绒服，搭配墨镜</td>
+        <td class="resp-col">
+          <span class="tag tag-miss">✗ 错误</span><br>
+          回答"红色外套"，颜色识别完全错误，且对所有相同问题给出固定模板回答，无视图像差异
+        </td>
+        <td class="resp-col">
+          <span class="tag tag-miss">✗ 错误</span><br>
+          也答成"红色羽绒服"，但额外识别出墨镜、项链等配饰，感知维度更丰富，整体颜色准确率高 25pp
+        </td>
+      </tr>
+      <tr>
+        <td class="query-col">看看主驾穿的什么颜色的衣服</td>
+        <td class="gt-col">主驾衣服颜色</td>
+        <td class="resp-col">
+          <span class="tag tag-miss">✗ 视角混淆</span><br>
+          常将驾驶员描述与副驾混淆，主/副驾视角理解存在系统性错误
+        </td>
+        <td class="resp-col">
+          <span class="tag tag-hit">✓ 较好</span><br>
+          能区分主驾/副驾位置，针对提问者身份给出对应答案，视角理解更准确
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 人数统计 -->
+<div class="section">
+  <div class="section-header">
+    <span class="cat-label" style="background:#FAEEDA;color:#633806;">人数统计</span>
+    <span class="verdict-badge" style="background:#E6F1FB;color:#0C447C;">qwen 略胜 — 15.6% vs 20.3%（两者均弱）</span>
+  </div>
+  <table>
+    <thead>
+      <tr><th>问题</th><th>GT 关键答案</th><th>gemma-4-26b</th><th>qwen3.5-omni-flash</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="query-col">看看前排只有一个人对吗</td>
+        <td class="gt-col">前排两人，并非只有一个</td>
+        <td class="resp-col">
+          <span class="tag tag-hit">✓ 正确</span><br>
+          正确识别前排有两人，纠正用户误判，逻辑清晰
+        </td>
+        <td class="resp-col">
+          <span class="tag tag-miss">✗ 错误+失败</span><br>
+          部分回答附和"只有我一个"产生幻觉，另有 20 条请求直接失败返回 null
+        </td>
+      </tr>
+      <tr>
+        <td class="query-col">看看车里有几个人</td>
+        <td class="gt-col">两人 / 三人</td>
+        <td class="resp-col">
+          <span class="tag tag-miss">✗ 模糊</span><br>
+          倾向感性描述如"有小伙伴陪伴"，缺少明确数字输出
+        </td>
+        <td class="resp-col">
+          <span class="tag tag-miss">✗ 模糊</span><br>
+          同样偏感性，数字提及率略高于 gemma，两者在计数任务上均是共同短板
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 儿童安全 -->
+<div class="section">
+  <div class="section-header">
+    <span class="cat-label" style="background:#FCEBEB;color:#791F1F;">儿童安全</span>
+    <span class="verdict-badge" style="background:#EAF3DE;color:#3B6D11;">gemma 胜出 — 91.7% vs 75.0%</span>
+  </div>
+  <table>
+    <thead>
+      <tr><th>问题</th><th>GT 关键答案</th><th>gemma-4-26b</th><th>qwen3.5-omni-flash</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="query-col">看看儿童有无危险行为</td>
+        <td class="gt-col">小宝贝在后排吃零食，安全座椅稳稳，无危险行为</td>
+        <td class="resp-col">
+          <span class="tag tag-hit">✓ 正确</span><br>
+          准确判断"无危险行为"，能识别儿童位置和安全座椅状态，安全逻辑完整，准确率 91.7%
+        </td>
+        <td class="resp-col">
+          <span class="tag tag-hit">✓ 正确但有遗漏</span><br>
+          判断方向正确，但部分案例未提及安全座椅，且 16.7% 请求失败，整体被拖累至 75.0%
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 发型 -->
+<div class="section">
+  <div class="section-header">
+    <span class="cat-label" style="background:#EEEDFE;color:#3C3489;">发型识别</span>
+    <span class="verdict-badge" style="background:#E6F1FB;color:#0C447C;">qwen 略胜 — 17.6% vs 27.9%（两者均弱）</span>
+  </div>
+  <table>
+    <thead>
+      <tr><th>问题</th><th>GT 关键答案</th><th>gemma-4-26b</th><th>qwen3.5-omni-flash</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="query-col">看看我的长发飘逸吗</td>
+        <td class="gt-col">副驾头发极短，根本没有长发</td>
+        <td class="resp-col">
+          <span class="tag tag-miss">✗ 严重幻觉</span><br>
+          描述"发丝轻盈散开、飘逸"，完全未感知到实际是短发，陷入奉承性幻觉，顺着用户预设答题
+        </td>
+        <td class="resp-col">
+          <span class="tag tag-miss">✗ 幻觉</span><br>
+          同样未识别出短发，但更多借题发挥，没有直接断言"长发飘逸"，幻觉程度略轻
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 配饰识别 -->
+<div class="section">
+  <div class="section-header">
+    <span class="cat-label" style="background:#FBEAF0;color:#72243E;">配饰识别</span>
+    <span class="verdict-badge" style="background:#EAF3DE;color:#3B6D11;">gemma 胜出 — 82.1% vs 66.1%</span>
+  </div>
+  <table>
+    <thead>
+      <tr><th>问题</th><th>GT 关键答案</th><th>gemma-4-26b</th><th>qwen3.5-omni-flash</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="query-col">看看我的手表好看吗</td>
+        <td class="gt-col">副驾确实戴着手表</td>
+        <td class="resp-col">
+          <span class="tag tag-hit">✓ 正确</span><br>
+          正确感知到手表存在并给出评价，配饰识别能力较强，准确率 82.1%，100% 请求成功
+        </td>
+        <td class="resp-col">
+          <span class="tag tag-na">部分失败</span><br>
+          多条请求直接返回 null，成功的回答质量尚可，但失败率将整体拖累至 66.1%
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 性别识别 -->
+<div class="section">
+  <div class="section-header">
+    <span class="cat-label" style="background:#E6F1FB;color:#0C447C;">性别识别</span>
+    <span class="verdict-badge" style="background:#E6F1FB;color:#0C447C;">qwen 胜出 — 58.3% vs 66.7%</span>
+  </div>
+  <table>
+    <thead>
+      <tr><th>问题</th><th>GT 关键答案</th><th>gemma-4-26b</th><th>qwen3.5-omni-flash</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="query-col">看看我是男生还是女生</td>
+        <td class="gt-col">副驾是女生（长发、墨镜）</td>
+        <td class="resp-col">
+          <span class="tag tag-miss">✗ 错误</span><br>
+          识别为"阳光大男孩"，性别判断相反。视角混乱，将驾驶员特征误归给副驾提问者
+        </td>
+        <td class="resp-col">
+          <span class="tag tag-hit">✓ 正确</span><br>
+          正确识别为女生，并捕捉到墨镜、饮料等视觉细节，提问者视角理解更准确
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 手持物体 -->
+<div class="section">
+  <div class="section-header">
+    <span class="cat-label" style="background:#F1EFE8;color:#444441;">手持物体/图像</span>
+    <span class="verdict-badge" style="background:#F1EFE8;color:#5F5E5A;">两者相近 — 66.8% vs 67.6%</span>
+  </div>
+  <table>
+    <thead>
+      <tr><th>问题</th><th>GT 关键答案</th><th>gemma-4-26b</th><th>qwen3.5-omni-flash</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="query-col">看看我手中图，画的是什么</td>
+        <td class="gt-col">小房子、绿树、云朵、小鸟</td>
+        <td class="resp-col">
+          <span class="tag tag-hit">✓ 正确</span><br>
+          识别出小房子、云朵等主要元素，表述准确，风格活泼自然
+        </td>
+        <td class="resp-col">
+          <span class="tag tag-hit">✓ 正确且更详细</span><br>
+          额外描述"黄色房子、红屋顶、大太阳"等颜色细节，信息量更丰富，细节感知更强
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+</body>
+</html>
